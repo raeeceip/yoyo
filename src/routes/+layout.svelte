@@ -9,11 +9,17 @@
 	class="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 text-white"
 >
 	<Navbar />
-	<main class="pt-16 pl-0 md:pl-64">
-		<div class="container mx-auto p-4">
+	<main class="pt-16 px-4 sm:px-6 lg:px-8">
+		<div class="max-w-7xl mx-auto">
 			<slot />
 		</div>
 	</main>
 </div>
 
 <Toaster />
+
+<style>
+	:global(body) {
+		@apply overflow-x-hidden;
+	}
+</style>

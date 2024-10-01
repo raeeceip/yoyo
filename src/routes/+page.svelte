@@ -30,8 +30,10 @@
 	];
 </script>
 
-<div class="container mx-auto p-4">
-	<h1 class="text-4xl font-bold mb-8 text-center text-white">yoyo</h1>
+<div class="py-8">
+	<h1 class="text-4xl font-bold mb-8 text-center text-white">
+		Fractal Explorer
+	</h1>
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 		{#each fractals as fractal}
 			<Card
@@ -41,19 +43,18 @@
 					class="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 pointer-events-none"
 				></div>
 				<CardHeader>
-					<CardTitle class="text-2xl font-bold text-white"
+					<CardTitle class="text-xl font-bold text-white"
 						>{fractal.name}</CardTitle
 					>
-					<CardDescription class="text-gray-300"
+					<CardDescription class="text-gray-300 text-sm"
 						>{fractal.description}</CardDescription
 					>
 				</CardHeader>
-				<CardContent>
-					<!-- You can add a small preview image here if desired -->
-				</CardContent>
 				<CardFooter>
-					<Button on:click={() => goto(fractal.path)} variant="secondary"
-						>Explore</Button
+					<Button
+						on:click={() => goto(fractal.path)}
+						variant="secondary"
+						class="w-full">Explore</Button
 					>
 				</CardFooter>
 			</Card>
