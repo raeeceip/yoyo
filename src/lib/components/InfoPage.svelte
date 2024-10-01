@@ -6,6 +6,7 @@
 		CardHeader,
 		CardTitle,
 		CardDescription,
+		CardFooter,
 	} from "$lib/components/ui/card";
 
 	export let title;
@@ -23,16 +24,16 @@
 </script>
 
 <div
-	class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+	class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
 >
 	<Card
-		class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800"
+		class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-gray-900 to-black border border-gray-700"
 	>
-		<CardHeader>
-			<CardTitle>{title}</CardTitle>
-			<CardDescription>{description}</CardDescription>
+		<CardHeader class="border-b border-gray-700">
+			<CardTitle class="text-2xl font-bold text-white">{title}</CardTitle>
+			<CardDescription class="text-gray-400">{description}</CardDescription>
 		</CardHeader>
-		<CardContent>
+		<CardContent class="p-6">
 			<div class="flex space-x-2 mb-4">
 				<Button
 					variant={currentSection === "formula" ? "default" : "outline"}
@@ -49,30 +50,34 @@
 			</div>
 
 			{#if currentSection === "formula"}
-				<div>
+				<div class="text-white">
 					<h3 class="text-lg font-semibold mb-2">Mathematical Formula</h3>
-					<p class="mb-2">{formula.explanation}</p>
+					<p class="mb-2 text-gray-300">{formula.explanation}</p>
 					<pre
-						class="bg-gray-100 dark:bg-gray-700 p-2 rounded">{formula.equation}</pre>
+						class="bg-gray-800 p-4 rounded-md overflow-x-auto">{@html formula.renderedEquation}</pre>
 				</div>
 			{:else if currentSection === "history"}
-				<div>
-					<h3 class="text-lg font-semibold mb-2">Historical Background</h3>
+				<div class="text-gray-300">
+					<h3 class="text-lg font-semibold mb-2 text-white">
+						Historical Background
+					</h3>
 					<p>{history}</p>
 				</div>
 			{:else if currentSection === "facts"}
-				<div>
-					<h3 class="text-lg font-semibold mb-2">Interesting Facts</h3>
-					<ul class="list-disc pl-5">
+				<div class="text-gray-300">
+					<h3 class="text-lg font-semibold mb-2 text-white">
+						Interesting Facts
+					</h3>
+					<ul class="list-disc pl-5 space-y-2">
 						{#each interestingFacts as fact}
-							<li class="mb-2">{fact}</li>
+							<li>{fact}</li>
 						{/each}
 					</ul>
 				</div>
 			{/if}
 		</CardContent>
-		<div class="p-4 border-t border-gray-200 dark:border-gray-700">
-			<Button on:click={onClose}>Close</Button>
-		</div>
+		<CardFooter class="border-t border-gray-700 flex justify-end">
+			<Button on:click={onClose} variant="outline">Close</Button>
+		</CardFooter>
 	</Card>
 </div>

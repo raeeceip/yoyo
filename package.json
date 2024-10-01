@@ -26,6 +26,7 @@
     "clsx": "^2.1.1",
     "lucide-svelte": "^0.446.0",
     "mode-watcher": "^0.4.1",
+    "svelte-katex": "^0.1.2",
     "svelte-material-ui": "^7.0.0",
     "svelte-sonner": "^0.3.28",
     "tailwind-merge": "^2.5.2",

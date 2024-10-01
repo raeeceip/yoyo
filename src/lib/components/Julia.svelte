@@ -3,12 +3,17 @@
 	import { browser } from "$app/environment";
 	import Sidebar from "./Sidebar.svelte";
 	import FractalCanvas from "./FractalCanvas.svelte";
+	import InfoPage from "./InfoPage.svelte";
+	import { Button } from "$lib/components/ui/button";
+	import katex from "katex";
 
 	export let cReal = -0.7;
 	export let cImag = 0.27015;
 	export let maxIterations = 100;
 	export let quality = 1;
 	let hue = 0;
+	let showInfo = false;
+	let juliaInfo;
 
 	const width = 800;
 	const height = 600;
@@ -154,7 +159,34 @@
 	const fractalName = "Julia's Kaleidoscope";
 	const fractalDescription =
 		"Explore the enchanting world of Julia sets, where simple changes in parameters create stunning, ever-changing patterns.";
+
+	function toggleInfo() {
+		showInfo = !showInfo;
+	}
+
+	onMount(async () => {
+		const response = await fetch("/data/julia-info.json");
+		juliaInfo = await response.json();
+		if (juliaInfo && juliaInfo.formula) {
+			juliaInfo.formula.renderedEquation = katex.renderToString(
+				juliaInfo.formula.equation,
+				{
+					throwOnError: false,
+					displayMode: true,
+				},
+			);
+		}
+	});
 </script>
+
+<svelte:head>
+	<link
+		rel="stylesheet"
+		href="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.css"
+		integrity="sha384-3UiQGuEI4TTMaFmGIZumfRPtfKQ3trwQE2JgosJxCnGmQpL/lJdjpcHkaaFwHlcI"
+		crossorigin="anonymous"
+	/>
+</svelte:head>
 
 <div class="flex flex-col md:flex-row gap-4">
 	<Sidebar
@@ -164,15 +196,25 @@
 		{handleReset}
 	/>
 
-	<div class="w-full max-w-3xl mx-auto">
+	<div class="w-full max-w-3xl mx-auto relative">
 		<FractalCanvas
 			{generateFractal}
 			{width}
 			{height}
 			{quality}
-			gradientColors={["from-blue-500/20", "to-green-500/20"]}
 			{fractalName}
 			{fractalDescription}
 		/>
 	</div>
 </div>
+
+{#if showInfo && juliaInfo}
+	<InfoPage
+		title={juliaInfo.title}
+		description={juliaInfo.description}
+		formula={juliaInfo.formula}
+		history={juliaInfo.history}
+		interestingFacts={juliaInfo.interestingFacts}
+		onClose={toggleInfo}
+	/>
+{/if}

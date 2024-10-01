@@ -82,3 +82,11 @@
 		padding-left: 0;
 	}
 }
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-gray-900 text-white;
+}

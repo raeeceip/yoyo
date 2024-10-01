@@ -4,7 +4,7 @@
 	import Sidebar from "./Sidebar.svelte";
 	import FractalCanvas from "./FractalCanvas.svelte";
 	import InfoPage from "./InfoPage.svelte";
-	import { Button } from "$lib/components/ui/button";
+	import katex from "katex";
 
 	export let zoom = 1;
 	export let maxIterations = 100;
@@ -157,8 +157,26 @@
 	onMount(async () => {
 		const response = await fetch("/data/mandelbrot-info.json");
 		mandelbrotInfo = await response.json();
+		if (mandelbrotInfo && mandelbrotInfo.formula) {
+			mandelbrotInfo.formula.renderedEquation = katex.renderToString(
+				mandelbrotInfo.formula.equation,
+				{
+					throwOnError: false,
+					displayMode: true,
+				},
+			);
+		}
 	});
 </script>
+
+<svelte:head>
+	<link
+		rel="stylesheet"
+		href="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.css"
+		integrity="sha384-3UiQGuEI4TTMaFmGIZumfRPtfKQ3trwQE2JgosJxCnGmQpL/lJdjpcHkaaFwHlcI"
+		crossorigin="anonymous"
+	/>
+</svelte:head>
 
 <div class="flex flex-col md:flex-row gap-4">
 	<Sidebar
@@ -168,23 +186,16 @@
 		{handleReset}
 	/>
 
-	<div class="w-full max-w-3xl mx-auto relative">
+	<div class="w-full max-w-3xl mx-auto">
 		<FractalCanvas
 			{generateFractal}
 			{width}
 			{height}
 			{quality}
-			gradientColors={["from-purple-500/20", "to-pink-500/20"]}
 			{fractalName}
 			{fractalDescription}
+			onInfoClick={toggleInfo}
 		/>
-		<Button
-			class="absolute top-4 right-4"
-			on:click={toggleInfo}
-			variant="secondary"
-		>
-			Info
-		</Button>
 	</div>
 </div>
 

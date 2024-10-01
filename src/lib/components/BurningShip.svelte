@@ -3,11 +3,14 @@
 	import { browser } from "$app/environment";
 	import Sidebar from "./Sidebar.svelte";
 	import FractalCanvas from "./FractalCanvas.svelte";
+	import InfoPage from "./InfoPage.svelte";
 
 	export let zoom = 1;
 	export let maxIterations = 100;
 	export let quality = 1;
 	let hue = 0;
+	let showInfo = false;
+	let burningShipInfo;
 
 	const width = 800;
 	const height = 600;
@@ -139,15 +142,47 @@
 			step: 1,
 		},
 	];
-
 	const generateFractal = { workerCode, generate };
 
 	const fractalName = "The Burning Fleet";
 	const fractalDescription =
 		"Witness the fiery chaos of the Burning Ship fractal, where mathematical flames create intricate, ship-like structures.";
+
+	function toggleInfo() {
+		showInfo = !showInfo;
+	}
+
+	onMount(async () => {
+		if (browser) {
+			try {
+				const response = await fetch("/data/burning-ship-info.json");
+				burningShipInfo = await response.json();
+				if (burningShipInfo && burningShipInfo.formula) {
+					burningShipInfo.formula.renderedEquation = katex.renderToString(
+						burningShipInfo.formula.equation,
+						{
+							throwOnError: false,
+							displayMode: true,
+						},
+					);
+				}
+			} catch (error) {
+				console.error("Failed to load burning ship info:", error);
+			}
+		}
+	});
 </script>
 
-<div class="flex flex-col md:flex-row gap-4">
+<svelte:head>
+	<link
+		rel="stylesheet"
+		href="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.css"
+		integrity="sha384-3UiQGuEI4TTMaFmGIZumfRPtfKQ3trwQE2JgosJxCnGmQpL/lJdjpcHkaaFwHlcI"
+		crossorigin="anonymous"
+	/>
+</svelte:head>
+
+<div class="relative flex flex-col md:flex-row gap-4">
 	<Sidebar
 		title="Burning Ship Explorer"
 		description="Navigate the treacherous waters of the Burning Ship fractal with these controls"
@@ -164,6 +199,18 @@
 			gradientColors={["from-red-500/20", "to-yellow-500/20"]}
 			{fractalName}
 			{fractalDescription}
+			onInfoClick={toggleInfo}
 		/>
 	</div>
 </div>
+
+{#if showInfo && burningShipInfo}
+	<InfoPage
+		title={burningShipInfo.title}
+		description={burningShipInfo.description}
+		formula={burningShipInfo.formula}
+		history={burningShipInfo.history}
+		interestingFacts={burningShipInfo.interestingFacts}
+		onClose={toggleInfo}
+	/>
+{/if}
