@@ -1,49 +1,23 @@
 <script>
-	import { onMount, onDestroy } from "svelte";
+	import { onMount } from "svelte";
 	import { browser } from "$app/environment";
-	import { Card, CardContent } from "$lib/components/ui/card";
 	import Sidebar from "./Sidebar.svelte";
+	import FractalCanvas from "./FractalCanvas.svelte";
 
 	export let zoom = 1;
 	export let maxIterations = 100;
 	export let quality = 1;
-	let animationFrame;
-	let canvas;
-	let ctx;
 	let hue = 0;
-	let worker;
 
-	const baseWidth = 800;
-	const baseHeight = 600;
-
-	let containerWidth;
-	let containerHeight;
-	let width = baseWidth;
-	let height = baseHeight;
-
-	$: aspectRatio = baseHeight / baseWidth;
-	$: {
-		if (containerWidth && containerHeight) {
-			const containerAspectRatio = containerHeight / containerWidth;
-			if (containerAspectRatio > aspectRatio) {
-				width = containerWidth * quality;
-				height = containerWidth * aspectRatio * quality;
-			} else {
-				height = containerHeight * quality;
-				width = (containerHeight / aspectRatio) * quality;
-			}
-		} else {
-			width = baseWidth * quality;
-			height = baseHeight * quality;
-		}
-	}
+	const width = 800;
+	const height = 600;
 
 	const workerCode = `
 	  function mandelbrot(x, y, maxIterations, zoom) {
 		let zx = 0;
 		let zy = 0;
-		const cx = (x - ${baseWidth} / 2) / (${baseWidth} / 4) / zoom;
-		const cy = (y - ${baseHeight} / 2) / (${baseHeight} / 4) / zoom;
+		const cx = (x - ${width} / 2) / (${width} / 4) / zoom;
+		const cy = (y - ${height} / 2) / (${height} / 4) / zoom;
   
 		for (let i = 0; i < maxIterations; i++) {
 		  const xtemp = zx * zx - zy * zy + cx;
@@ -77,14 +51,7 @@
 	  };
 	`;
 
-	function initWorker() {
-		const blob = new Blob([workerCode], { type: "application/javascript" });
-		worker = new Worker(URL.createObjectURL(blob));
-	}
-
-	function generateMandelbrot() {
-		if (!ctx || !worker) return;
-
+	function generate(worker, ctx, width, height) {
 		worker.postMessage({ width, height, maxIterations, zoom, quality });
 
 		worker.onmessage = function (e) {
@@ -105,7 +72,7 @@
 
 			ctx.putImageData(imageData, 0, 0);
 			hue = (hue + 1) % 360;
-			animationFrame = requestAnimationFrame(generateMandelbrot);
+			requestAnimationFrame(() => generate(worker, ctx, width, height));
 		};
 	}
 
@@ -137,53 +104,10 @@
 		return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 	}
 
-	function handleResize() {
-		const container = document.querySelector(".mandelbrot-container");
-		if (container) {
-			containerWidth = container.clientWidth;
-			containerHeight = container.clientHeight;
-		}
-	}
-
-	onMount(() => {
-		if (browser) {
-			ctx = canvas.getContext("2d");
-			initWorker();
-			handleResize();
-			window.addEventListener("resize", handleResize);
-			generateMandelbrot();
-		}
-		return () => {
-			if (animationFrame) {
-				cancelAnimationFrame(animationFrame);
-			}
-			if (worker) {
-				worker.terminate();
-			}
-		};
-	});
-
-	onDestroy(() => {
-		if (browser) {
-			window.removeEventListener("resize", handleResize);
-		}
-	});
-
-	$: if (browser && (zoom || maxIterations || quality || width || height)) {
-		if (animationFrame) {
-			cancelAnimationFrame(animationFrame);
-		}
-		generateMandelbrot();
-	}
-
 	function handleReset() {
 		zoom = 1;
 		maxIterations = 100;
 		quality = 1;
-		toast({
-			title: "Reset",
-			description: "Mandelbrot set has been reset to default values.",
-		});
 	}
 
 	const controls = [
@@ -193,7 +117,7 @@
 			type: "range",
 			value: zoom,
 			min: 0.1,
-			max: 2,
+			max: 10,
 			step: 0.1,
 		},
 		{
@@ -202,7 +126,7 @@
 			type: "range",
 			value: maxIterations,
 			min: 10,
-			max: 500,
+			max: 1000,
 			step: 10,
 		},
 		{
@@ -215,32 +139,31 @@
 			step: 1,
 		},
 	];
+
+	const generateFractal = { workerCode, generate };
+
+	const fractalName = "Mandelbrot's Infinite Abyss";
+	const fractalDescription =
+		"Dive into the mesmerizing depths of the Mandelbrot set, where intricate patterns emerge from simple mathematical rules.";
 </script>
 
 <div class="flex flex-col md:flex-row gap-4">
 	<Sidebar
-		title="Mandelbrot Set"
-		description="Explore the fascinating world of the Mandelbrot Set"
+		title="Mandelbrot Explorer"
+		description="Uncover the secrets of the Mandelbrot set by adjusting these parameters"
 		{controls}
 		{handleReset}
 	/>
 
-	<div class="mandelbrot-container w-full max-w-3xl mx-auto">
-		<Card
-			class="backdrop-blur-lg bg-white/10 dark:bg-gray-800/30 border-none overflow-hidden relative"
-		>
-			<div
-				class="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 pointer-events-none"
-			></div>
-			<CardContent class="p-4">
-				<canvas
-					bind:this={canvas}
-					{width}
-					{height}
-					style="width: 100%; height: 100%; object-fit: contain;"
-					class="rounded-lg shadow-inner border-4 border-white/20"
-				/>
-			</CardContent>
-		</Card>
+	<div class="w-full max-w-3xl mx-auto">
+		<FractalCanvas
+			{generateFractal}
+			{width}
+			{height}
+			{quality}
+			gradientColors={["from-purple-500/20", "to-pink-500/20"]}
+			{fractalName}
+			{fractalDescription}
+		/>
 	</div>
 </div>

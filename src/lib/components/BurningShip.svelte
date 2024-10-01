@@ -1,90 +1,57 @@
 <script>
-	import { onMount, onDestroy } from "svelte";
+	import { onMount } from "svelte";
 	import { browser } from "$app/environment";
-	import { Card, CardContent } from "$lib/components/ui/card";
 	import Sidebar from "./Sidebar.svelte";
+	import FractalCanvas from "./FractalCanvas.svelte";
 
 	export let zoom = 1;
 	export let maxIterations = 100;
 	export let quality = 1;
-	let animationFrame;
-	let canvas;
-	let ctx;
 	let hue = 0;
-	let worker;
 
-	const baseWidth = 800;
-	const baseHeight = 600;
-
-	let containerWidth;
-	let containerHeight;
-	let width = baseWidth;
-	let height = baseHeight;
-
-	$: aspectRatio = baseHeight / baseWidth;
-	$: {
-		if (containerWidth && containerHeight) {
-			const containerAspectRatio = containerHeight / containerWidth;
-			if (containerAspectRatio > aspectRatio) {
-				width = containerWidth * quality;
-				height = containerWidth * aspectRatio * quality;
-			} else {
-				height = containerHeight * quality;
-				width = (containerHeight / aspectRatio) * quality;
-			}
-		} else {
-			width = baseWidth * quality;
-			height = baseHeight * quality;
-		}
-	}
+	const width = 800;
+	const height = 600;
 
 	const workerCode = `
-    function burningShip(x, y, maxIterations, zoom) {
-      let zx = 0;
-      let zy = 0;
-      const cx = (x - ${baseWidth} / 2) / (${baseWidth} / 4) / zoom - 0.5;
-      const cy = (y - ${baseHeight} / 2) / (${baseHeight} / 4) / zoom - 0.5;
+		function burningShip(x, y, maxIterations, zoom) {
+			let zx = 0;
+			let zy = 0;
+			const cx = (x - ${width} / 2) / (${width} / 4) / zoom - 0.5;
+			const cy = (y - ${height} / 2) / (${height} / 4) / zoom - 0.5;
 
-      for (let i = 0; i < maxIterations; i++) {
-        const xtemp = zx * zx - zy * zy + cx;
-        zy = Math.abs(2 * zx * zy) + cy;
-        zx = xtemp;
-        if (zx * zx + zy * zy > 4) return i;
-      }
-      return maxIterations;
-    }
+			for (let i = 0; i < maxIterations; i++) {
+				const xtemp = zx * zx - zy * zy + cx;
+				zy = Math.abs(2 * zx * zy) + cy;
+				zx = xtemp;
+				if (zx * zx + zy * zy > 4) return i;
+			}
+			return maxIterations;
+		}
 
-    self.onmessage = function(e) {
-      const { width, height, maxIterations, zoom, quality } = e.data;
-      const result = new Uint32Array(width * height);
+		self.onmessage = function(e) {
+			const { width, height, maxIterations, zoom, quality } = e.data;
+			const result = new Uint32Array(width * height);
 
-      for (let y = 0; y < height; y += quality) {
-        for (let x = 0; x < width; x += quality) {
-          const i = burningShip(x / quality, y / quality, maxIterations, zoom);
-          const index = y * width + x;
-          result[index] = i;
-          if (quality > 1) {
-            for (let dy = 0; dy < quality && y + dy < height; dy++) {
-              for (let dx = 0; dx < quality && x + dx < width; dx++) {
-                result[(y + dy) * width + (x + dx)] = i;
-              }
-            }
-          }
-        }
-      }
+			for (let y = 0; y < height; y += quality) {
+				for (let x = 0; x < width; x += quality) {
+					const i = burningShip(x / quality, y / quality, maxIterations, zoom);
+					const index = y * width + x;
+					result[index] = i;
+					if (quality > 1) {
+						for (let dy = 0; dy < quality && y + dy < height; dy++) {
+							for (let dx = 0; dx < quality && x + dx < width; dx++) {
+								result[(y + dy) * width + (x + dx)] = i;
+							}
+						}
+					}
+				}
+			}
 
-      self.postMessage({ result }, [result.buffer]);
-    };
-  `;
+			self.postMessage({ result }, [result.buffer]);
+		};
+	`;
 
-	function initWorker() {
-		const blob = new Blob([workerCode], { type: "application/javascript" });
-		worker = new Worker(URL.createObjectURL(blob));
-	}
-
-	function generateBurningShip() {
-		if (!ctx || !worker) return;
-
+	function generate(worker, ctx, width, height) {
 		worker.postMessage({ width, height, maxIterations, zoom, quality });
 
 		worker.onmessage = function (e) {
@@ -105,7 +72,7 @@
 
 			ctx.putImageData(imageData, 0, 0);
 			hue = (hue + 1) % 360;
-			animationFrame = requestAnimationFrame(generateBurningShip);
+			requestAnimationFrame(() => generate(worker, ctx, width, height));
 		};
 	}
 
@@ -137,53 +104,10 @@
 		return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 	}
 
-	function handleResize() {
-		const container = document.querySelector(".burningship-container");
-		if (container) {
-			containerWidth = container.clientWidth;
-			containerHeight = container.clientHeight;
-		}
-	}
-
-	onMount(() => {
-		if (browser) {
-			ctx = canvas.getContext("2d");
-			initWorker();
-			handleResize();
-			window.addEventListener("resize", handleResize);
-			generateBurningShip();
-		}
-		return () => {
-			if (animationFrame) {
-				cancelAnimationFrame(animationFrame);
-			}
-			if (worker) {
-				worker.terminate();
-			}
-		};
-	});
-
-	onDestroy(() => {
-		if (browser) {
-			window.removeEventListener("resize", handleResize);
-		}
-	});
-
-	$: if (browser && (zoom || maxIterations || quality || width || height)) {
-		if (animationFrame) {
-			cancelAnimationFrame(animationFrame);
-		}
-		generateBurningShip();
-	}
-
 	function handleReset() {
 		zoom = 1;
 		maxIterations = 100;
 		quality = 1;
-		toast({
-			title: "Reset",
-			description: "Burning Ship fractal has been reset to default values.",
-		});
 	}
 
 	const controls = [
@@ -193,7 +117,7 @@
 			type: "range",
 			value: zoom,
 			min: 0.1,
-			max: 2,
+			max: 10,
 			step: 0.1,
 		},
 		{
@@ -202,7 +126,7 @@
 			type: "range",
 			value: maxIterations,
 			min: 10,
-			max: 500,
+			max: 1000,
 			step: 10,
 		},
 		{
@@ -215,32 +139,31 @@
 			step: 1,
 		},
 	];
+
+	const generateFractal = { workerCode, generate };
+
+	const fractalName = "The Burning Fleet";
+	const fractalDescription =
+		"Witness the fiery chaos of the Burning Ship fractal, where mathematical flames create intricate, ship-like structures.";
 </script>
 
 <div class="flex flex-col md:flex-row gap-4">
 	<Sidebar
-		title="Burning Ship Fractal"
-		description="Explore the fiery world of the Burning Ship fractal"
+		title="Burning Ship Explorer"
+		description="Navigate the treacherous waters of the Burning Ship fractal with these controls"
 		{controls}
 		{handleReset}
 	/>
 
-	<div class="burningship-container w-full max-w-3xl mx-auto">
-		<Card
-			class="backdrop-blur-lg bg-white/10 dark:bg-gray-800/30 border-none overflow-hidden relative"
-		>
-			<div
-				class="absolute inset-0 bg-gradient-to-br from-red-500/20 to-yellow-500/20 pointer-events-none"
-			></div>
-			<CardContent class="p-4">
-				<canvas
-					bind:this={canvas}
-					{width}
-					{height}
-					style="width: 100%; height: 100%; object-fit: contain;"
-					class="rounded-lg shadow-inner border-4 border-white/20"
-				/>
-			</CardContent>
-		</Card>
+	<div class="w-full max-w-3xl mx-auto">
+		<FractalCanvas
+			{generateFractal}
+			{width}
+			{height}
+			{quality}
+			gradientColors={["from-red-500/20", "to-yellow-500/20"]}
+			{fractalName}
+			{fractalDescription}
+		/>
 	</div>
 </div>
