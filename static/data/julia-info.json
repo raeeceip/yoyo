@@ -1,0 +1,16 @@
+{
+    "title": "Julia Sets",
+    "description": "Julia sets are fractals that are closely related to the Mandelbrot set and exhibit beautiful, intricate patterns.",
+    "formula": {
+        "explanation": "Julia sets are defined by the same function as the Mandelbrot set, but with a fixed complex constant c:",
+        "equation": "f(z) = z^2 + c\nwhere z is iterated and c is a fixed complex constant"
+    },
+    "history": "Julia sets are named after the French mathematician Gaston Julia, who investigated their properties around 1915. However, they only gained widespread attention in the 1970s and 1980s with the advent of computer graphics, which allowed for their visualization.",
+    "interestingFacts": [
+        "Each point c in the Mandelbrot set corresponds to a connected Julia set.",
+        "Julia sets can be connected or disconnected, depending on the value of c.",
+        "The boundary of the Mandelbrot set is the set of all c values for which the corresponding Julia set is connected but not simply connected.",
+        "Julia sets exhibit self-similarity, but unlike the Mandelbrot set, each Julia set is self-similar to itself at all scales.",
+        "Changing the value of c can dramatically alter the appearance of the Julia set, from intricate spirals to 'dust-like' distributions."
+    ]
+}

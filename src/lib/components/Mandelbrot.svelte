@@ -3,11 +3,15 @@
 	import { browser } from "$app/environment";
 	import Sidebar from "./Sidebar.svelte";
 	import FractalCanvas from "./FractalCanvas.svelte";
+	import InfoPage from "./InfoPage.svelte";
+	import { Button } from "$lib/components/ui/button";
 
 	export let zoom = 1;
 	export let maxIterations = 100;
 	export let quality = 1;
 	let hue = 0;
+	let showInfo = false;
+	let mandelbrotInfo;
 
 	const width = 800;
 	const height = 600;
@@ -145,6 +149,15 @@
 	const fractalName = "Mandelbrot's Infinite Abyss";
 	const fractalDescription =
 		"Dive into the mesmerizing depths of the Mandelbrot set, where intricate patterns emerge from simple mathematical rules.";
+
+	function toggleInfo() {
+		showInfo = !showInfo;
+	}
+
+	onMount(async () => {
+		const response = await fetch("/data/mandelbrot-info.json");
+		mandelbrotInfo = await response.json();
+	});
 </script>
 
 <div class="flex flex-col md:flex-row gap-4">
@@ -155,7 +168,7 @@
 		{handleReset}
 	/>
 
-	<div class="w-full max-w-3xl mx-auto">
+	<div class="w-full max-w-3xl mx-auto relative">
 		<FractalCanvas
 			{generateFractal}
 			{width}
@@ -165,5 +178,23 @@
 			{fractalName}
 			{fractalDescription}
 		/>
+		<Button
+			class="absolute top-4 right-4"
+			on:click={toggleInfo}
+			variant="secondary"
+		>
+			Info
+		</Button>
 	</div>
 </div>
+
+{#if showInfo && mandelbrotInfo}
+	<InfoPage
+		title={mandelbrotInfo.title}
+		description={mandelbrotInfo.description}
+		formula={mandelbrotInfo.formula}
+		history={mandelbrotInfo.history}
+		interestingFacts={mandelbrotInfo.interestingFacts}
+		onClose={toggleInfo}
+	/>
+{/if}
