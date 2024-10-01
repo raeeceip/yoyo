@@ -1,6 +1,5 @@
-<!-- src/lib/components/Julia.svelte -->
 <script>
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import { browser } from "$app/environment";
 	import { Card, CardContent } from "$lib/components/ui/card";
 	import Sidebar from "./Sidebar.svelte";
@@ -18,8 +17,27 @@
 	const baseWidth = 800;
 	const baseHeight = 600;
 
-	$: width = baseWidth * quality;
-	$: height = baseHeight * quality;
+	let containerWidth;
+	let containerHeight;
+	let width = baseWidth;
+	let height = baseHeight;
+
+	$: aspectRatio = baseHeight / baseWidth;
+	$: {
+		if (containerWidth && containerHeight) {
+			const containerAspectRatio = containerHeight / containerWidth;
+			if (containerAspectRatio > aspectRatio) {
+				width = containerWidth * quality;
+				height = containerWidth * aspectRatio * quality;
+			} else {
+				height = containerHeight * quality;
+				width = (containerHeight / aspectRatio) * quality;
+			}
+		} else {
+			width = baseWidth * quality;
+			height = baseHeight * quality;
+		}
+	}
 
 	const workerCode = `
     function julia(x, y, maxIterations, cReal, cImag) {
@@ -118,10 +136,20 @@
 		return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 	}
 
+	function handleResize() {
+		const container = document.querySelector(".julia-container");
+		if (container) {
+			containerWidth = container.clientWidth;
+			containerHeight = container.clientHeight;
+		}
+	}
+
 	onMount(() => {
 		if (browser) {
 			ctx = canvas.getContext("2d");
 			initWorker();
+			handleResize();
+			window.addEventListener("resize", handleResize);
 			generateJulia();
 		}
 		return () => {
@@ -134,7 +162,16 @@
 		};
 	});
 
-	$: if (browser && (cReal || cImag || maxIterations || quality)) {
+	onDestroy(() => {
+		if (browser) {
+			window.removeEventListener("resize", handleResize);
+		}
+	});
+
+	$: if (
+		browser &&
+		(cReal || cImag || maxIterations || quality || width || height)
+	) {
 		if (animationFrame) {
 			cancelAnimationFrame(animationFrame);
 		}
@@ -188,26 +225,30 @@
 	];
 </script>
 
-<Sidebar
-	title="Julia Set"
-	description="Explore the mesmerizing Julia Set"
-	{controls}
-	onReset={handleReset}
-/>
+<div class="flex flex-col md:flex-row gap-4">
+	<Sidebar
+		title="Julia Set"
+		description="Explore the mesmerizing Julia Set"
+		{controls}
+		{handleReset}
+	/>
 
-<Card
-	class="backdrop-blur-lg bg-white/10 dark:bg-gray-800/30 border-none overflow-hidden relative max-w-3xl mx-auto"
->
-	<div
-		class="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-green-500/20 pointer-events-none"
-	></div>
-	<CardContent class="p-4">
-		<canvas
-			bind:this={canvas}
-			width={baseWidth}
-			height={baseHeight}
-			style="width: {baseWidth}px; height: {baseHeight}px;"
-			class="rounded-lg shadow-inner border-4 border-white/20"
-		/>
-	</CardContent>
-</Card>
+	<div class="julia-container w-full max-w-3xl mx-auto">
+		<Card
+			class="backdrop-blur-lg bg-white/10 dark:bg-gray-800/30 border-none overflow-hidden relative"
+		>
+			<div
+				class="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-green-500/20 pointer-events-none"
+			></div>
+			<CardContent class="p-4">
+				<canvas
+					bind:this={canvas}
+					{width}
+					{height}
+					style="width: 100%; height: 100%; object-fit: contain;"
+					class="rounded-lg shadow-inner border-4 border-white/20"
+				/>
+			</CardContent>
+		</Card>
+	</div>
+</div>
