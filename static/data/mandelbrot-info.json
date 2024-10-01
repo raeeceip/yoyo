@@ -3,7 +3,7 @@
     "description": "The Mandelbrot set is one of the most famous examples of fractals in mathematics.",
     "formula": {
         "explanation": "The Mandelbrot set is defined by a simple recursive equation in the complex plane:",
-        "equation": "f(z) = z^2 + c\nwhere z and c are complex numbers"
+        "equation": "f(z) = z^2 + c\n where z and c are complex numbers"
     },
     "history": "The Mandelbrot set is named after Benoit Mandelbrot, who studied and popularized it in 1975. However, it was first visualized by Robert W. Brooks and Peter Matelski in 1978. Mandelbrot studied the set in detail and published his findings in 1980.",
     "interestingFacts": [

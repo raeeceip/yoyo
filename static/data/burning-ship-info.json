@@ -3,7 +3,7 @@
     "description": "The Burning Ship fractal is a variant of the Mandelbrot set, known for its distinctive flame-like appearance.",
     "formula": {
         "explanation": "The Burning Ship fractal is defined by a modification of the Mandelbrot set equation, where the absolute value is taken before squaring:",
-        "equation": "f(z) = (|Re(z)| + i|Im(z)|)^2 + c\nwhere z and c are complex numbers"
+        "equation": "f(z) = (|Re(z)| + i|Im(z)|)^2 + c\n where z and c are complex numbers"
     },
     "history": "The Burning Ship fractal was discovered by Michael Michelitsch and Otto E. Rössler in 1992. It's a relatively recent addition to the family of fractals derived from the Mandelbrot set.",
     "interestingFacts": [

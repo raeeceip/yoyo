@@ -4,13 +4,16 @@
 	import Sidebar from "./Sidebar.svelte";
 	import FractalCanvas from "./FractalCanvas.svelte";
 	import InfoPage from "./InfoPage.svelte";
+	import katex from "katex";
 
 	export let zoom = 1;
 	export let maxIterations = 100;
 	export let quality = 1;
 	let hue = 0;
 	let showInfo = false;
-	let burningShipInfo;
+	let burningShipInfo = null;
+	let isLoading = true;
+	let error = null;
 
 	const width = 800;
 	const height = 600;
@@ -152,25 +155,38 @@
 		showInfo = !showInfo;
 	}
 
-	onMount(async () => {
-		if (browser) {
-			try {
-				const response = await fetch("/data/burning-ship-info.json");
-				burningShipInfo = await response.json();
-				if (burningShipInfo && burningShipInfo.formula) {
-					burningShipInfo.formula.renderedEquation = katex.renderToString(
-						burningShipInfo.formula.equation,
-						{
-							throwOnError: false,
-							displayMode: true,
-						},
-					);
-				}
-			} catch (error) {
-				console.error("Failed to load burning ship info:", error);
+	async function loadBurningShipInfo() {
+		if (!browser) return;
+
+		try {
+			const response = await fetch("/data/burning-ship-info.json");
+			if (!response.ok) throw new Error("Failed to fetch data");
+
+			burningShipInfo = await response.json();
+			if (
+				burningShipInfo &&
+				burningShipInfo.formula &&
+				burningShipInfo.formula.equation
+			) {
+				burningShipInfo.formula.renderedEquation = katex.renderToString(
+					burningShipInfo.formula.equation,
+					{
+						throwOnError: false,
+						displayMode: true,
+					},
+				);
+			} else {
+				console.warn("Formula or equation is missing in the fetched data");
 			}
+		} catch (err) {
+			console.error("Error loading burning ship info:", err);
+			error = "Failed to load fractal information. Please try again later.";
+		} finally {
+			isLoading = false;
 		}
-	});
+	}
+
+	onMount(loadBurningShipInfo);
 </script>
 
 <svelte:head>
@@ -204,13 +220,30 @@
 	</div>
 </div>
 
-{#if showInfo && burningShipInfo}
-	<InfoPage
-		title={burningShipInfo.title}
-		description={burningShipInfo.description}
-		formula={burningShipInfo.formula}
-		history={burningShipInfo.history}
-		interestingFacts={burningShipInfo.interestingFacts}
-		onClose={toggleInfo}
-	/>
+{#if showInfo}
+	{#if isLoading}
+		<div
+			class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+		>
+			<p class="text-white text-xl">Loading fractal information...</p>
+		</div>
+	{:else if error}
+		<div
+			class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+		>
+			<p class="text-red-500 text-xl">{error}</p>
+		</div>
+	{:else if burningShipInfo}
+		<InfoPage
+			title={burningShipInfo.title}
+			description={burningShipInfo.description}
+			formula={burningShipInfo.formula || {
+				explanation: "Formula not available",
+				renderedEquation: "",
+			}}
+			history={burningShipInfo.history}
+			interestingFacts={burningShipInfo.interestingFacts}
+			onClose={toggleInfo}
+		/>
+	{/if}
 {/if}

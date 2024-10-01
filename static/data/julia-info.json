@@ -3,7 +3,7 @@
     "description": "Julia sets are fractals that are closely related to the Mandelbrot set and exhibit beautiful, intricate patterns.",
     "formula": {
         "explanation": "Julia sets are defined by the same function as the Mandelbrot set, but with a fixed complex constant c:",
-        "equation": "f(z) = z^2 + c\nwhere z is iterated and c is a fixed complex constant"
+        "equation": "f(z) = z^2 + c\n where z is iterated and c is a fixed complex constant"
     },
     "history": "Julia sets are named after the French mathematician Gaston Julia, who investigated their properties around 1915. However, they only gained widespread attention in the 1970s and 1980s with the advent of computer graphics, which allowed for their visualization.",
     "interestingFacts": [

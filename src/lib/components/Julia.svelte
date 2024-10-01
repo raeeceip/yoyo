@@ -202,8 +202,10 @@
 			{width}
 			{height}
 			{quality}
+			gradientColors={["from-red-500/20", "to-yellow-500/20"]}
 			{fractalName}
 			{fractalDescription}
+			onInfoClick={toggleInfo}
 		/>
 	</div>
 </div>
