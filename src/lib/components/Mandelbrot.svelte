@@ -17,67 +17,80 @@
 	const height = 600;
 
 	const workerCode = `
-	  function mandelbrot(x, y, maxIterations, zoom) {
-		let zx = 0;
-		let zy = 0;
-		const cx = (x - ${width} / 2) / (${width} / 4) / zoom;
-		const cy = (y - ${height} / 2) / (${height} / 4) / zoom;
-  
-		for (let i = 0; i < maxIterations; i++) {
-		  const xtemp = zx * zx - zy * zy + cx;
-		  zy = 2 * zx * zy + cy;
-		  zx = xtemp;
-		  if (zx * zx + zy * zy > 4) return i;
-		}
-		return maxIterations;
-	  }
-  
-	  self.onmessage = function(e) {
-		const { width, height, maxIterations, zoom, quality } = e.data;
-		const result = new Uint32Array(width * height);
-  
-		for (let y = 0; y < height; y += quality) {
-		  for (let x = 0; x < width; x += quality) {
-			const i = mandelbrot(x / quality, y / quality, maxIterations, zoom);
-			const index = y * width + x;
-			result[index] = i;
-			if (quality > 1) {
-			  for (let dy = 0; dy < quality && y + dy < height; dy++) {
-				for (let dx = 0; dx < quality && x + dx < width; dx++) {
-				  result[(y + dy) * width + (x + dx)] = i;
-				}
-			  }
-			}
-		  }
-		}
-  
-		self.postMessage({ result }, [result.buffer]);
-	  };
-	`;
+  function mandelbrot(x, y, maxIterations, zoom, time) {
+    let zx = 0;
+    let zy = 0;
+    const cx = (x - ${width} / 2) / (${width} / 4) / zoom;
+    const cy = (y - ${height} / 2) / (${height} / 4) / zoom;
 
+    // Simplified pulsing effect
+    const pulse = Math.sin(time * 0.001) * 0.02;
+    const pulseFactor = 1 + pulse;
+
+    for (let i = 0; i < maxIterations; i++) {
+      const xtemp = zx * zx - zy * zy + cx * pulseFactor;
+      zy = 2 * zx * zy + cy * pulseFactor;
+      zx = xtemp;
+
+      if (zx * zx + zy * zy > 4) return i;
+    }
+    return maxIterations;
+  }
+
+  self.onmessage = function(e) {
+    const { width, height, maxIterations, zoom, quality, time } = e.data;
+    const result = new Uint32Array(width * height);
+
+    for (let y = 0; y < height; y += quality) {
+      for (let x = 0; x < width; x += quality) {
+        const i = mandelbrot(x / quality, y / quality, maxIterations, zoom, time);
+        const index = y * width + x;
+        result[index] = i;
+        if (quality > 1) {
+          for (let dy = 0; dy < quality && y + dy < height; dy++) {
+            for (let dx = 0; dx < quality && x + dx < width; dx++) {
+              result[(y + dy) * width + (x + dx)] = i;
+            }
+          }
+        }
+      }
+    }
+
+    self.postMessage({ result }, [result.buffer]);
+  };
+`;
+
+	// Optimized generate function for Mandelbrot.svelte
 	function generate(worker, ctx, width, height) {
-		worker.postMessage({ width, height, maxIterations, zoom, quality });
+		const startTime = Date.now();
 
-		worker.onmessage = function (e) {
-			const imageData = ctx.createImageData(width, height);
-			const result = e.data.result;
+		function animationLoop() {
+			const time = Date.now() - startTime;
+			worker.postMessage({ width, height, maxIterations, zoom, quality, time });
 
-			for (let i = 0; i < result.length; i++) {
-				const [r, g, b] = hslToRgb(
-					((result[i] / maxIterations) * 360 + hue) % 360,
-					80,
-					30,
-				);
-				imageData.data[i * 4] = r;
-				imageData.data[i * 4 + 1] = g;
-				imageData.data[i * 4 + 2] = b;
-				imageData.data[i * 4 + 3] = 255;
-			}
+			worker.onmessage = function (e) {
+				const imageData = ctx.createImageData(width, height);
+				const result = e.data.result;
 
-			ctx.putImageData(imageData, 0, 0);
-			hue = (hue + 1) % 360;
-			requestAnimationFrame(() => generate(worker, ctx, width, height));
-		};
+				for (let i = 0; i < result.length; i++) {
+					const [r, g, b] = hslToRgb(
+						((result[i] / maxIterations) * 360 + hue) % 360,
+						80,
+						30,
+					);
+					imageData.data[i * 4] = r;
+					imageData.data[i * 4 + 1] = g;
+					imageData.data[i * 4 + 2] = b;
+					imageData.data[i * 4 + 3] = 255;
+				}
+
+				ctx.putImageData(imageData, 0, 0);
+				hue = (hue + 0.5) % 360; // Slow down hue change
+				setTimeout(() => requestAnimationFrame(animationLoop), 50); // Limit to ~20 FPS
+			};
+		}
+
+		animationLoop();
 	}
 
 	function hslToRgb(h, s, l) {

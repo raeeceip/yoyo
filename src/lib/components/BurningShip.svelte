@@ -1,7 +1,6 @@
 <script>
 	import { onMount } from "svelte";
 	import { browser } from "$app/environment";
-	import Sidebar from "./Sidebar.svelte";
 	import FractalCanvas from "./FractalCanvas.svelte";
 	import InfoPage from "./InfoPage.svelte";
 	import katex from "katex";
@@ -12,35 +11,40 @@
 	let hue = 0;
 	let showInfo = false;
 	let burningShipInfo = null;
-	let isLoading = true;
-	let error = null;
 
 	const width = 800;
 	const height = 600;
 
 	const workerCode = `
-		function burningShip(x, y, maxIterations, zoom) {
+		function burningShip(x, y, maxIterations, zoom, time) {
 			let zx = 0;
 			let zy = 0;
 			const cx = (x - ${width} / 2) / (${width} / 4) / zoom - 0.5;
 			const cy = (y - ${height} / 2) / (${height} / 4) / zoom - 0.5;
-
+	
 			for (let i = 0; i < maxIterations; i++) {
-				const xtemp = zx * zx - zy * zy + cx;
+				const x2 = zx * zx;
+				const y2 = zy * zy;
+				if (x2 + y2 > 4) return i;
+	
+				const xtemp = Math.abs(x2 - y2) + cx;
 				zy = Math.abs(2 * zx * zy) + cy;
 				zx = xtemp;
-				if (zx * zx + zy * zy > 4) return i;
+	
+				// Add some animation based on time
+				zx += 0.001 * Math.sin(time * 0.001);
+				zy += 0.001 * Math.cos(time * 0.001);
 			}
 			return maxIterations;
 		}
-
+	
 		self.onmessage = function(e) {
-			const { width, height, maxIterations, zoom, quality } = e.data;
+			const { width, height, maxIterations, zoom, quality, time } = e.data;
 			const result = new Uint32Array(width * height);
-
+	
 			for (let y = 0; y < height; y += quality) {
 				for (let x = 0; x < width; x += quality) {
-					const i = burningShip(x / quality, y / quality, maxIterations, zoom);
+					const i = burningShip(x / quality, y / quality, maxIterations, zoom, time);
 					const index = y * width + x;
 					result[index] = i;
 					if (quality > 1) {
@@ -52,34 +56,41 @@
 					}
 				}
 			}
-
+	
 			self.postMessage({ result }, [result.buffer]);
 		};
 	`;
 
 	function generate(worker, ctx, width, height) {
-		worker.postMessage({ width, height, maxIterations, zoom, quality });
+		const startTime = Date.now();
 
-		worker.onmessage = function (e) {
-			const imageData = ctx.createImageData(width, height);
-			const result = e.data.result;
+		function animationLoop() {
+			const time = Date.now() - startTime;
+			worker.postMessage({ width, height, maxIterations, zoom, quality, time });
 
-			for (let i = 0; i < result.length; i++) {
-				const [r, g, b] = hslToRgb(
-					((result[i] / maxIterations) * 360 + hue) % 360,
-					100,
-					result[i] < maxIterations ? 50 : 0,
-				);
-				imageData.data[i * 4] = r;
-				imageData.data[i * 4 + 1] = g;
-				imageData.data[i * 4 + 2] = b;
-				imageData.data[i * 4 + 3] = 255;
-			}
+			worker.onmessage = function (e) {
+				const imageData = ctx.createImageData(width, height);
+				const result = e.data.result;
 
-			ctx.putImageData(imageData, 0, 0);
-			hue = (hue + 1) % 360;
-			requestAnimationFrame(() => generate(worker, ctx, width, height));
-		};
+				for (let i = 0; i < result.length; i++) {
+					const [r, g, b] = hslToRgb(
+						((result[i] / maxIterations) * 360 + hue) % 360,
+						100,
+						result[i] < maxIterations ? 50 : 0,
+					);
+					imageData.data[i * 4] = r;
+					imageData.data[i * 4 + 1] = g;
+					imageData.data[i * 4 + 2] = b;
+					imageData.data[i * 4 + 3] = 255;
+				}
+
+				ctx.putImageData(imageData, 0, 0);
+				hue = (hue + 0.5) % 360;
+				requestAnimationFrame(() => animationLoop());
+			};
+		}
+
+		animationLoop();
 	}
 
 	function hslToRgb(h, s, l) {
@@ -145,48 +156,30 @@
 			step: 1,
 		},
 	];
+
 	const generateFractal = { workerCode, generate };
 
-	const fractalName = "The Burning Fleet";
+	const fractalName = "Burning Ship Fractal";
 	const fractalDescription =
-		"Witness the fiery chaos of the Burning Ship fractal, where mathematical flames create intricate, ship-like structures.";
+		"Explore the fiery chaos of the Burning Ship fractal";
 
 	function toggleInfo() {
 		showInfo = !showInfo;
 	}
 
-	async function loadBurningShipInfo() {
-		if (!browser) return;
-
-		try {
-			const response = await fetch("/data/burning-ship-info.json");
-			if (!response.ok) throw new Error("Failed to fetch data");
-
-			burningShipInfo = await response.json();
-			if (
-				burningShipInfo &&
-				burningShipInfo.formula &&
-				burningShipInfo.formula.equation
-			) {
-				burningShipInfo.formula.renderedEquation = katex.renderToString(
-					burningShipInfo.formula.equation,
-					{
-						throwOnError: false,
-						displayMode: true,
-					},
-				);
-			} else {
-				console.warn("Formula or equation is missing in the fetched data");
-			}
-		} catch (err) {
-			console.error("Error loading burning ship info:", err);
-			error = "Failed to load fractal information. Please try again later.";
-		} finally {
-			isLoading = false;
+	onMount(async () => {
+		const response = await fetch("/data/burningship-info.json");
+		burningShipInfo = await response.json();
+		if (burningShipInfo && burningShipInfo.formula) {
+			burningShipInfo.formula.renderedEquation = katex.renderToString(
+				burningShipInfo.formula.equation,
+				{
+					throwOnError: false,
+					displayMode: true,
+				},
+			);
 		}
-	}
-
-	onMount(loadBurningShipInfo);
+	});
 </script>
 
 <svelte:head>
@@ -198,52 +191,25 @@
 	/>
 </svelte:head>
 
-<div class="relative flex flex-col md:flex-row gap-4">
-	<Sidebar
-		title="Burning Ship Explorer"
-		description="Navigate the treacherous waters of the Burning Ship fractal with these controls"
-		{controls}
-		{handleReset}
+<div class="flex flex-col md:flex-row gap-4">
+	<FractalCanvas
+		{generateFractal}
+		{width}
+		{height}
+		{quality}
+		{fractalName}
+		{fractalDescription}
+		onInfoClick={toggleInfo}
 	/>
-
-	<div class="w-full max-w-3xl mx-auto">
-		<FractalCanvas
-			{generateFractal}
-			{width}
-			{height}
-			{quality}
-			gradientColors={["from-red-500/20", "to-yellow-500/20"]}
-			{fractalName}
-			{fractalDescription}
-			onInfoClick={toggleInfo}
-		/>
-	</div>
 </div>
 
-{#if showInfo}
-	{#if isLoading}
-		<div
-			class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
-		>
-			<p class="text-white text-xl">Loading fractal information...</p>
-		</div>
-	{:else if error}
-		<div
-			class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
-		>
-			<p class="text-red-500 text-xl">{error}</p>
-		</div>
-	{:else if burningShipInfo}
-		<InfoPage
-			title={burningShipInfo.title}
-			description={burningShipInfo.description}
-			formula={burningShipInfo.formula || {
-				explanation: "Formula not available",
-				renderedEquation: "",
-			}}
-			history={burningShipInfo.history}
-			interestingFacts={burningShipInfo.interestingFacts}
-			onClose={toggleInfo}
-		/>
-	{/if}
+{#if showInfo && burningShipInfo}
+	<InfoPage
+		title={burningShipInfo.title}
+		description={burningShipInfo.description}
+		formula={burningShipInfo.formula}
+		history={burningShipInfo.history}
+		interestingFacts={burningShipInfo.interestingFacts}
+		onClose={toggleInfo}
+	/>
 {/if}

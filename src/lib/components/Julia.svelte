@@ -1,44 +1,51 @@
 <script>
 	import { onMount } from "svelte";
 	import { browser } from "$app/environment";
-	import Sidebar from "./Sidebar.svelte";
 	import FractalCanvas from "./FractalCanvas.svelte";
 	import InfoPage from "./InfoPage.svelte";
-	import { Button } from "$lib/components/ui/button";
+	import Sidebar from "./Sidebar.svelte";
 	import katex from "katex";
 
-	export let cReal = -0.7;
-	export let cImag = 0.27015;
+	export let zoom = 1;
 	export let maxIterations = 100;
 	export let quality = 1;
+	export let cReal = -0.7;
+	export let cImag = 0.27015;
 	let hue = 0;
 	let showInfo = false;
-	let juliaInfo;
+	let juliaInfo = null;
 
 	const width = 800;
 	const height = 600;
 
 	const workerCode = `
-		function julia(x, y, maxIterations, cReal, cImag) {
-			let zx = (x - ${width} / 2) / (${width} / 4);
-			let zy = (y - ${height} / 2) / (${height} / 4);
-
+		function julia(x, y, maxIterations, zoom, cReal, cImag, time) {
+			let zx = (x - ${width} / 2) / (${width} / 4) / zoom;
+			let zy = (y - ${height} / 2) / (${height} / 4) / zoom;
+	
 			for (let i = 0; i < maxIterations; i++) {
-				const xtemp = zx * zx - zy * zy + cReal;
+				const x2 = zx * zx;
+				const y2 = zy * zy;
+				if (x2 + y2 > 4) return i;
+	
+				const xtemp = x2 - y2 + cReal;
 				zy = 2 * zx * zy + cImag;
 				zx = xtemp;
-				if (zx * zx + zy * zy > 4) return i;
+	
+				// Add some animation based on time
+				zx += 0.001 * Math.sin(time * 0.001);
+				zy += 0.001 * Math.cos(time * 0.001);
 			}
 			return maxIterations;
 		}
-
+	
 		self.onmessage = function(e) {
-			const { width, height, maxIterations, cReal, cImag, quality } = e.data;
+			const { width, height, maxIterations, zoom, quality, cReal, cImag, time } = e.data;
 			const result = new Uint32Array(width * height);
-
+	
 			for (let y = 0; y < height; y += quality) {
 				for (let x = 0; x < width; x += quality) {
-					const i = julia(x / quality, y / quality, maxIterations, cReal, cImag);
+					const i = julia(x / quality, y / quality, maxIterations, zoom, cReal, cImag, time);
 					const index = y * width + x;
 					result[index] = i;
 					if (quality > 1) {
@@ -50,34 +57,50 @@
 					}
 				}
 			}
-
+	
 			self.postMessage({ result }, [result.buffer]);
 		};
 	`;
 
 	function generate(worker, ctx, width, height) {
-		worker.postMessage({ width, height, maxIterations, cReal, cImag, quality });
+		const startTime = Date.now();
 
-		worker.onmessage = function (e) {
-			const imageData = ctx.createImageData(width, height);
-			const result = e.data.result;
+		function animationLoop() {
+			const time = Date.now() - startTime;
+			worker.postMessage({
+				width,
+				height,
+				maxIterations,
+				zoom,
+				quality,
+				cReal,
+				cImag,
+				time,
+			});
 
-			for (let i = 0; i < result.length; i++) {
-				const [r, g, b] = hslToRgb(
-					((result[i] / maxIterations) * 360 + hue) % 360,
-					100,
-					50,
-				);
-				imageData.data[i * 4] = r;
-				imageData.data[i * 4 + 1] = g;
-				imageData.data[i * 4 + 2] = b;
-				imageData.data[i * 4 + 3] = 255;
-			}
+			worker.onmessage = function (e) {
+				const imageData = ctx.createImageData(width, height);
+				const result = e.data.result;
 
-			ctx.putImageData(imageData, 0, 0);
-			hue = (hue + 1) % 360;
-			requestAnimationFrame(() => generate(worker, ctx, width, height));
-		};
+				for (let i = 0; i < result.length; i++) {
+					const [r, g, b] = hslToRgb(
+						((result[i] / maxIterations) * 360 + hue) % 360,
+						100,
+						result[i] < maxIterations ? 50 : 0,
+					);
+					imageData.data[i * 4] = r;
+					imageData.data[i * 4 + 1] = g;
+					imageData.data[i * 4 + 2] = b;
+					imageData.data[i * 4 + 3] = 255;
+				}
+
+				ctx.putImageData(imageData, 0, 0);
+				hue = (hue + 0.5) % 360;
+				requestAnimationFrame(() => animationLoop());
+			};
+		}
+
+		animationLoop();
 	}
 
 	function hslToRgb(h, s, l) {
@@ -109,30 +132,22 @@
 	}
 
 	function handleReset() {
-		cReal = -0.7;
-		cImag = 0.27015;
+		zoom = 1;
 		maxIterations = 100;
 		quality = 1;
+		cReal = -0.7;
+		cImag = 0.27015;
 	}
 
 	const controls = [
 		{
-			id: "cReal",
-			label: "Real Part",
-			type: "number",
-			value: cReal,
-			step: 0.01,
-			min: -2,
-			max: 2,
-		},
-		{
-			id: "cImag",
-			label: "Imaginary Part",
-			type: "number",
-			value: cImag,
-			step: 0.01,
-			min: -2,
-			max: 2,
+			id: "zoom",
+			label: "Zoom",
+			type: "range",
+			value: zoom,
+			min: 0.1,
+			max: 10,
+			step: 0.1,
 		},
 		{
 			id: "maxIterations",
@@ -152,13 +167,31 @@
 			max: 4,
 			step: 1,
 		},
+		{
+			id: "cReal",
+			label: "Real Part",
+			type: "range",
+			value: cReal,
+			min: -2,
+			max: 2,
+			step: 0.01,
+		},
+		{
+			id: "cImag",
+			label: "Imaginary Part",
+			type: "range",
+			value: cImag,
+			min: -2,
+			max: 2,
+			step: 0.01,
+		},
 	];
 
 	const generateFractal = { workerCode, generate };
 
-	const fractalName = "Julia's Kaleidoscope";
+	const fractalName = "Julia Set";
 	const fractalDescription =
-		"Explore the enchanting world of Julia sets, where simple changes in parameters create stunning, ever-changing patterns.";
+		"Explore the mesmerizing patterns of the Julia Set";
 
 	function toggleInfo() {
 		showInfo = !showInfo;
@@ -188,21 +221,19 @@
 	/>
 </svelte:head>
 
-<div class="flex flex-col md:flex-row gap-4">
+<div class="flex flex-col md:flex-row h-screen">
 	<Sidebar
 		title="Julia Set Explorer"
-		description="Manipulate the Julia set by adjusting these magical parameters"
+		description="Adjust the parameters to explore different Julia sets"
 		{controls}
 		{handleReset}
 	/>
-
-	<div class="w-full max-w-3xl mx-auto relative">
+	<div class="flex-grow overflow-hidden">
 		<FractalCanvas
 			{generateFractal}
 			{width}
 			{height}
 			{quality}
-			gradientColors={["from-red-500/20", "to-yellow-500/20"]}
 			{fractalName}
 			{fractalDescription}
 			onInfoClick={toggleInfo}
